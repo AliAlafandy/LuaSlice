@@ -310,8 +310,8 @@ class ModMenuState extends MusicBeatState
     disabledModItems.titleText.x = leftRectangle.x + (leftRectangle.width / 2) - (disabledModItems.titleText.width / 2);
     disabledModItems.titleText.y = leftRectangle.y + 14;
 
-    enabledModItems.clipRect = FlxRect.get(rightRectangle.x, rightRectangle.y + 60, rightRectangle.width, rightRectangle.height - 75);
-    disabledModItems.clipRect = FlxRect.get(leftRectangle.x, leftRectangle.y + 60, leftRectangle.width, leftRectangle.height - 75);
+    enabledModItems.clipRect = FlxRect.get(0, 60, rightRectangle.width, rightRectangle.height - 75);
+    disabledModItems.clipRect = FlxRect.get(0, 60, leftRectangle.width, leftRectangle.height - 75);
 
     refreshModList(false);
 
@@ -972,12 +972,6 @@ class ModMenuState extends MusicBeatState
     }
     else if (Path.isAbsolute(path) && FileUtil.directoryExists(path))
     {
-      if (!FileUtil.pathExists(Path.join([path, PolymodConfig.modMetadataFile])))
-      {
-        WindowUtil.showError('Failed to move folder', 'Could not find polymod metadata inside the folder, are you sure this is a mod pack?');
-        return;
-      }
-
       try
       {
         FileUtil.copyDirectory(path, Path.join([PolymodHandler.MOD_FOLDER, Path.withoutDirectory(path)]));
