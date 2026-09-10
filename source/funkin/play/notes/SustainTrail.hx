@@ -119,6 +119,7 @@ class SustainTrail extends FlxSprite
   public var noteStyleOffsets:Array<Float>;
 
   var graphicWidth:Float = 0;
+  static var motionBlurShader:Null<funkin.graphics.shaders.NoteMotionBlurShader>;
   var graphicHeight:Float = 0;
 
   /**
@@ -417,7 +418,13 @@ class SustainTrail extends FlxSprite
       // if (!isOnScreen(camera)) continue; // TODO: Update this code to make it work properly.
 
       getScreenPosition(_point, camera).subtract(offset);
-      camera.drawTriangles(graphic, vertices, indices, uvtData, null, _point, blend, true, antialiasing, colorTransform, shader);
+      var drawShader = shader;
+      if (drawShader == null && antialiasing && Preferences.motionBlur)
+      {
+        motionBlurShader ??= new funkin.graphics.shaders.NoteMotionBlurShader();
+        drawShader = motionBlurShader;
+      }
+      camera.drawTriangles(graphic, vertices, indices, uvtData, null, _point, blend, true, antialiasing, colorTransform, drawShader);
     }
 
     #if FLX_DEBUG

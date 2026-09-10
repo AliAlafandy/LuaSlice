@@ -203,6 +203,8 @@ typedef SongEventSchemaField =
    */
   type:SongEventFieldType,
 
+  ?tooltip:String,
+
   /**
    * Used only for ENUM values.
    * The key is the display name and the value is the actual value.

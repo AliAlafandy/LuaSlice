@@ -31,7 +31,7 @@ class SScriptRuntime implements IScriptRuntime
     script.setClass(Conductor);
     script.setClass(Save);
     script.setClass(Json);
-    script.doString(File.getContent(path), path);
+    script.doString(ScriptSource.normalize(File.getContent(path)), path);
 
     if (script.parsingException != null) throw script.parsingException;
   }

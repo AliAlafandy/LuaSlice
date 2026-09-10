@@ -353,7 +353,17 @@ class CharacterDataParser
 
     if (isAnimated)
     {
-      var frames = Paths.getSparrowAtlas(charPath);
+      var frames:Null<flixel.graphics.frames.FlxAtlasFrames> = null;
+      try
+      {
+        frames = Paths.getSparrowAtlas(charPath);
+      }
+      catch (error:Dynamic)
+      {
+        trace(' WARNING '.warning() + ' Character ${char} has no valid freeplay icon: ${error}');
+        return null;
+      }
+      if (frames == null || frames.frames == null) return null;
 
       var idleFrame:Null<FlxFrame> = frames.frames.find(function(frame:FlxFrame):Bool
       {

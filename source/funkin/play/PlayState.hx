@@ -3067,6 +3067,8 @@ class PlayState extends MusicBeatSubState
   {
     if (isGamePaused) return;
 
+    event.position = Conductor.instance.songPosition;
+
     // Do the minimal possible work here.
     inputPressQueue.push(event);
   }
@@ -3076,6 +3078,7 @@ class PlayState extends MusicBeatSubState
      */
   function onKeyRelease(event:PreciseInputEvent):Void
   {
+    event.position = Conductor.instance.songPosition;
     // Do the minimal possible work here.
     inputReleaseQueue.push(event);
   }
@@ -3216,8 +3219,10 @@ class PlayState extends MusicBeatSubState
         // Grant the player health.
         if (!isBotPlayMode && holdNote.scoreable)
         {
-          health += Constants.HEALTH_HOLD_BONUS_PER_SECOND * elapsed;
-          songScore += Constants.SCORE_HOLD_BONUS_PER_SECOND * elapsed;
+          var holdElapsed = Math.min(elapsed, holdNote.sustainLength / Constants.MS_PER_SEC);
+
+          health += Constants.HEALTH_HOLD_BONUS_PER_SECOND * holdElapsed;
+          songScore += Constants.SCORE_HOLD_BONUS_PER_SECOND * holdElapsed;
         }
 
         // Make sure the player keeps singing while the note is held by the bot.
@@ -3400,7 +3405,7 @@ class PlayState extends MusicBeatSubState
 
     // Get the offset and compensate for input latency.
     // Round inward (trim remainder) for consistency.
-    var noteDiff:Int = Std.int(Conductor.instance.songPosition - note.noteData.time - inputLatencyMs);
+    var noteDiff:Int = Std.int((input.position ?? Conductor.instance.songPosition) - note.noteData.time - inputLatencyMs);
 
     var score = Scoring.scoreNote(noteDiff, PBOT1);
     var daRating = Scoring.judgeNote(noteDiff, PBOT1);

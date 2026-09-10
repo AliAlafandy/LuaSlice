@@ -5,6 +5,8 @@ import funkin.data.song.SongData.NoteParamData;
 import funkin.play.notes.notestyle.NoteStyle;
 import funkin.graphics.FunkinSprite;
 import funkin.graphics.shaders.HSVShader;
+import openfl.filters.BlurFilter;
+import openfl.filters.BitmapFilterQuality;
 
 class NoteSprite extends FunkinSprite
 {
@@ -16,6 +18,7 @@ class NoteSprite extends FunkinSprite
   public var holdNoteSprite:SustainTrail;
 
   var hsvShader:HSVShader;
+  var motionBlurFilter:Null<BlurFilter>;
 
   /**
    * The strum time at which the note should be hit, in milliseconds.
@@ -184,6 +187,7 @@ class NoteSprite extends FunkinSprite
   public function setupNoteGraphic(noteStyle:NoteStyle):Void
   {
     noteStyle.buildNoteSprite(this);
+    updateMotionBlur();
 
     // `false` disables the update() function for performance.
     this.active = noteStyle.isNoteAnimated();
@@ -246,6 +250,18 @@ class NoteSprite extends FunkinSprite
     if (hue != 1.0) this.shader = this.hsvShader;
   }
 
+  function updateMotionBlur():Void
+  {
+    var nextFilters = filters == null ? [] : filters.copy();
+    if (motionBlurFilter != null) nextFilters.remove(motionBlurFilter);
+    if (antialiasing && Preferences.motionBlur)
+    {
+      motionBlurFilter ??= new BlurFilter(1, 2.25, BitmapFilterQuality.LOW);
+      nextFilters.push(motionBlurFilter);
+    }
+    filters = nextFilters.length == 0 ? null : nextFilters;
+  }
+
   override public function revive():Void
   {
     super.revive();
@@ -265,10 +281,17 @@ class NoteSprite extends FunkinSprite
     this.hsvShader.hue = 1.0;
     this.hsvShader.saturation = 1.0;
     this.hsvShader.value = 1.0;
+    updateMotionBlur();
   }
 
   override public function kill():Void
   {
+    if (motionBlurFilter != null && filters != null)
+    {
+      final nextFilters = filters.copy();
+      nextFilters.remove(motionBlurFilter);
+      filters = nextFilters.length == 0 ? null : nextFilters;
+    }
     super.kill();
   }
 

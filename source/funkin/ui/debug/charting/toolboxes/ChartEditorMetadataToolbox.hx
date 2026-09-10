@@ -405,7 +405,8 @@ class ChartEditorMetadataToolbox extends ChartEditorBaseToolbox
     var charDataOpponent:Null<CharacterData> = CharacterDataParser.fetchCharacterData(chartEditorState.currentSongMetadata.playData.characters.opponent);
     if (charDataOpponent != null)
     {
-      buttonCharacterOpponent.icon = haxe.ui.util.Variant.fromImageData(CharacterDataParser.getCharPixelIconAsset(chartEditorState.currentSongMetadata.playData.characters.opponent));
+      var opponentIcon = CharacterDataParser.getCharPixelIconAsset(chartEditorState.currentSongMetadata.playData.characters.opponent);
+      buttonCharacterOpponent.icon = opponentIcon != null ? haxe.ui.util.Variant.fromImageData(opponentIcon) : null;
       buttonCharacterOpponent.text = charDataOpponent.name.length > LIMIT ? '${charDataOpponent.name.substr(0, LIMIT)}.' : '${charDataOpponent.name}';
     }
     else
@@ -417,7 +418,8 @@ class ChartEditorMetadataToolbox extends ChartEditorBaseToolbox
     var charDataGirlfriend:Null<CharacterData> = CharacterDataParser.fetchCharacterData(chartEditorState.currentSongMetadata.playData.characters.girlfriend);
     if (charDataGirlfriend != null)
     {
-      buttonCharacterGirlfriend.icon = haxe.ui.util.Variant.fromImageData(CharacterDataParser.getCharPixelIconAsset(chartEditorState.currentSongMetadata.playData.characters.girlfriend));
+      var girlfriendIcon = CharacterDataParser.getCharPixelIconAsset(chartEditorState.currentSongMetadata.playData.characters.girlfriend);
+      buttonCharacterGirlfriend.icon = girlfriendIcon != null ? haxe.ui.util.Variant.fromImageData(girlfriendIcon) : null;
       buttonCharacterGirlfriend.text = charDataGirlfriend.name.length > LIMIT ? '${charDataGirlfriend.name.substr(0, LIMIT)}.' : '${charDataGirlfriend.name}';
     }
     else
@@ -429,7 +431,8 @@ class ChartEditorMetadataToolbox extends ChartEditorBaseToolbox
     var charDataPlayer:Null<CharacterData> = CharacterDataParser.fetchCharacterData(chartEditorState.currentSongMetadata.playData.characters.player);
     if (charDataPlayer != null)
     {
-      buttonCharacterPlayer.icon = haxe.ui.util.Variant.fromImageData(CharacterDataParser.getCharPixelIconAsset(chartEditorState.currentSongMetadata.playData.characters.player));
+      var playerIcon = CharacterDataParser.getCharPixelIconAsset(chartEditorState.currentSongMetadata.playData.characters.player);
+      buttonCharacterPlayer.icon = playerIcon != null ? haxe.ui.util.Variant.fromImageData(playerIcon) : null;
       buttonCharacterPlayer.text = charDataPlayer.name.length > LIMIT ? '${charDataPlayer.name.substr(0, LIMIT)}.' : '${charDataPlayer.name}';
     }
     else

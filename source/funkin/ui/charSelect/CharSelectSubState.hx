@@ -153,6 +153,9 @@ class CharSelectSubState extends MusicBeatSubState
   override public function create():Void
   {
     super.create();
+    #if android
+    FlxG.android.enabled = false;
+    #end
 
     loadAvailableCharacters();
 
@@ -382,7 +385,7 @@ class CharSelectSubState extends MusicBeatSubState
     #end
 
     transitionGradient.loadGraphic(Paths.image('freeplay/transitionGradient'));
-    transitionGradient.scale.set(1280, 1);
+    transitionGradient.scale.set(FlxG.width, 1);
     transitionGradient.flipY = true;
     transitionGradient.updateHitbox();
     FlxTween.tween(transitionGradient, {y: -720}, 1, {ease: FlxEase.expoOut});
@@ -439,6 +442,9 @@ class CharSelectSubState extends MusicBeatSubState
 
   override public function destroy():Void
   {
+    #if android
+    FlxG.android.enabled = true;
+    #end
     CharSelectAtlasHandler.clearAtlasCache();
     super.destroy();
   }

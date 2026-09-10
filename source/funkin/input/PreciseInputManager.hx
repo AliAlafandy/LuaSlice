@@ -475,5 +475,6 @@ typedef PreciseInputEvent =
    * The key that was used for the input.
    * Used to distinguish between multiple inputs for the same direction.
    */
-  keyCode:Int
+  keyCode:Int,
+  ?position:Float
 };

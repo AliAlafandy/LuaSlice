@@ -251,6 +251,7 @@ class ChartEditorEventDataToolbox extends ChartEditorBaseToolbox
       // Add a label for the data field.
       var label:Label = new Label();
       label.text = field.title;
+      label.tooltip = field.tooltip;
       label.verticalAlign = 'center';
       label.percentWidth = 50;
       hbox.addComponent(label);
@@ -334,6 +335,8 @@ class ChartEditorEventDataToolbox extends ChartEditorBaseToolbox
           input.id = field.name;
           input.text = field.type;
       }
+
+      input.tooltip = field.tooltip;
 
       // Putting in a box so we can add a unit label easily if there is one.
       var inputBox:HBox = new HBox();

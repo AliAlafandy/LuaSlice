@@ -71,7 +71,7 @@ class DebugMenuSubState extends MusicBeatSubState
     createItem("ANIMATION EDITOR", openAnimationEditor);
     #end
     #end
-    #if (FEATURE_POLYMOD_MODS && !mobile)
+    #if FEATURE_POLYMOD_MODS
     createItem("MOD MENU", openModMenu);
     #end
     #if FEATURE_STAGE_EDITOR
@@ -125,7 +125,7 @@ class DebugMenuSubState extends MusicBeatSubState
   }
   #end
 
-  #if (FEATURE_POLYMOD_MODS && !mobile)
+  #if FEATURE_POLYMOD_MODS
   function openModMenu():Void
   {
     FlxTransitionableState.skipNextTransIn = true;

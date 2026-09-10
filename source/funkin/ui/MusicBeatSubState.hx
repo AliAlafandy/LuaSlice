@@ -1,6 +1,9 @@
 package funkin.ui;
 
 import flixel.FlxSubState;
+#if (FEATURE_SSCRIPT_SCRIPTS || FEATURE_NXSCRIPT_SCRIPTS)
+import luaslice.script.ScriptRuntimeManager;
+#end
 import flixel.text.FlxText;
 import funkin.ui.mainmenu.MainMenuState;
 import flixel.util.FlxColor;
@@ -34,6 +37,11 @@ class MusicBeatSubState extends FlxSubState implements IEventHandler
   public var conductorInUse(get, set):Conductor;
 
   var _conductorInUse:Null<Conductor>;
+
+  #if (FEATURE_SSCRIPT_SCRIPTS || FEATURE_NXSCRIPT_SCRIPTS)
+  var subStateScripts:Null<ScriptRuntimeManager>;
+  var subStateScriptsInitialized:Bool = false;
+  #end
 
   function get_conductorInUse():Conductor
   {
@@ -126,6 +134,12 @@ class MusicBeatSubState extends FlxSubState implements IEventHandler
 
   override public function destroy():Void
   {
+    #if (FEATURE_SSCRIPT_SCRIPTS || FEATURE_NXSCRIPT_SCRIPTS)
+    subStateScripts?.callHook('onDestroy', []);
+    subStateScripts?.destroy();
+    subStateScripts = null;
+    #end
+
     #if mobile
     if (hitbox != null)
     {
@@ -153,6 +167,18 @@ class MusicBeatSubState extends FlxSubState implements IEventHandler
 
   override function update(elapsed:Float):Void
   {
+    #if (FEATURE_SSCRIPT_SCRIPTS || FEATURE_NXSCRIPT_SCRIPTS)
+    if (!subStateScriptsInitialized)
+    {
+      subStateScriptsInitialized = true;
+      if (!(this is funkin.play.PlayState))
+      {
+        subStateScripts = ScriptRuntimeManager.loadClassScripts(this);
+        subStateScripts?.callHook('onCreate', []);
+      }
+    }
+    #end
+
     super.update(elapsed);
 
     // Emergency exit button.
@@ -167,6 +193,9 @@ class MusicBeatSubState extends FlxSubState implements IEventHandler
     Conductor.watchQuick(conductorInUse);
 
     dispatchEvent(new UpdateScriptEvent(elapsed));
+    #if (FEATURE_SSCRIPT_SCRIPTS || FEATURE_NXSCRIPT_SCRIPTS)
+    subStateScripts?.callHook('onUpdate', [elapsed]);
+    #end
   }
 
   override function onFocus():Void
@@ -174,6 +203,9 @@ class MusicBeatSubState extends FlxSubState implements IEventHandler
     super.onFocus();
 
     dispatchEvent(new FocusScriptEvent(FOCUS_GAINED));
+    #if (FEATURE_SSCRIPT_SCRIPTS || FEATURE_NXSCRIPT_SCRIPTS)
+    subStateScripts?.callHook('onFocusGained', []);
+    #end
   }
 
   override function onFocusLost():Void
@@ -181,6 +213,9 @@ class MusicBeatSubState extends FlxSubState implements IEventHandler
     super.onFocusLost();
 
     dispatchEvent(new FocusScriptEvent(FOCUS_LOST));
+    #if (FEATURE_SSCRIPT_SCRIPTS || FEATURE_NXSCRIPT_SCRIPTS)
+    subStateScripts?.callHook('onFocusLost', []);
+    #end
   }
 
   public function initConsoleHelpers():Void
@@ -238,6 +273,10 @@ class MusicBeatSubState extends FlxSubState implements IEventHandler
 
     var event:ScriptEvent = new SongTimeScriptEvent(SONG_STEP_HIT, conductorInUse.currentBeat, conductorInUse.currentStep);
 
+    #if (FEATURE_SSCRIPT_SCRIPTS || FEATURE_NXSCRIPT_SCRIPTS)
+    subStateScripts?.callHook('onStepHit', [Std.int(conductorInUse.currentStep)]);
+    #end
+
     dispatchEvent(event);
 
     if (event.eventCanceled) return false;
@@ -255,6 +294,10 @@ class MusicBeatSubState extends FlxSubState implements IEventHandler
     if (this.subState != null && !persistentUpdate) return false;
 
     var event:ScriptEvent = new SongTimeScriptEvent(SONG_BEAT_HIT, conductorInUse.currentBeat, conductorInUse.currentStep);
+
+    #if (FEATURE_SSCRIPT_SCRIPTS || FEATURE_NXSCRIPT_SCRIPTS)
+    subStateScripts?.callHook('onBeatHit', [Std.int(conductorInUse.currentBeat)]);
+    #end
 
     dispatchEvent(event);
 
