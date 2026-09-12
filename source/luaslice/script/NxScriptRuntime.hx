@@ -33,7 +33,7 @@ class NxScriptRuntime implements IScriptRuntime
     script.set('Conductor', Conductor);
     script.set('Save', Save);
     script.set('Json', Json);
-    script.run(File.getContent(path), path);
+    script.run(ScriptSource.normalize(File.getContent(path)), path);
   }
 
   public function callHook(name:String, args:Array<Dynamic>):Void

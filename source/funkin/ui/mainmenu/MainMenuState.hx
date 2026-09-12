@@ -45,7 +45,6 @@ import funkin.mobile.input.ControlsHandler;
 import funkin.mobile.util.InAppPurchasesUtil;
 #if FEATURE_POLYMOD_MODS
 import funkin.mobile.ui.mainmenu.FunkinModsButton;
-import funkin.mobile.ui.mainmenu.MobileModMenuWIPSubState;
 #end
 #end
 
@@ -293,7 +292,7 @@ class MainMenuState extends MusicBeatState
 
     #if FEATURE_POLYMOD_MODS
     final newModsButton:FunkinModsButton = new FunkinModsButton(35, 20,
-      openMobileModMenuNotice);
+      openMobileModMenu);
     if (camControls != null) newModsButton.cameras = [camControls];
     modsButton = newModsButton;
     add(newModsButton);
@@ -323,10 +322,10 @@ class MainMenuState extends MusicBeatState
   }
 
   #if (mobile && FEATURE_POLYMOD_MODS)
-  function openMobileModMenuNotice():Void
+  function openMobileModMenu():Void
   {
     persistentUpdate = false;
-    openSubState(new MobileModMenuWIPSubState());
+    FlxG.switchState(() -> new funkin.ui.modmenu.ModMenuState());
   }
   #end
 

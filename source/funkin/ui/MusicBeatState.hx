@@ -47,6 +47,7 @@ class MusicBeatState extends FlxTransitionableState implements IEventHandler
 
   #if (FEATURE_SSCRIPT_SCRIPTS || FEATURE_NXSCRIPT_SCRIPTS)
   var classScriptRuntimeManager:Null<ScriptRuntimeManager>;
+  var classScriptRuntimeInitialized:Bool = false;
   #end
 
   inline function get_controls():Controls return PlayerSettings.player1.controls;
@@ -159,11 +160,6 @@ class MusicBeatState extends FlxTransitionableState implements IEventHandler
     classLuaScriptManager?.callHook('onCreate', []);
     #end
 
-    #if (FEATURE_SSCRIPT_SCRIPTS || FEATURE_NXSCRIPT_SCRIPTS)
-    classScriptRuntimeManager = ScriptRuntimeManager.loadClassScripts(this);
-    classScriptRuntimeManager?.callHook('onCreate', []);
-    #end
-
     createWatermarkText();
 
     Conductor.beatHit.add(this.beatHit);
@@ -228,6 +224,15 @@ class MusicBeatState extends FlxTransitionableState implements IEventHandler
 
   override function update(elapsed:Float)
   {
+    #if (FEATURE_SSCRIPT_SCRIPTS || FEATURE_NXSCRIPT_SCRIPTS)
+    if (!classScriptRuntimeInitialized)
+    {
+      classScriptRuntimeInitialized = true;
+      classScriptRuntimeManager = ScriptRuntimeManager.loadClassScripts(this);
+      classScriptRuntimeManager?.callHook('onCreate', []);
+    }
+    #end
+
     super.update(elapsed);
 
     #if FEATURE_LUA_SCRIPTS

@@ -3,6 +3,10 @@
 Important LuaSlice engine updates are tracked here.
 I'm making it as simple, professional, FNF style. (non-AI!!)
 
+## [0.0.9] - 2026-09-08
+
+- Updated to v0.0.9.
+
 ## [0.0.8] - 2026-08-23 | Funkin v0.8.6 Port
 
 ### Changed

@@ -327,6 +327,7 @@ class ModMenuItem extends FunkinSpriteGroup
 
     future.onComplete((openFlBytes:openfl.utils.ByteArray) ->
     {
+      if (!exists || children == null || modIcon == null) return;
       try
       {
         var bitmapData = openfl.display.BitmapData.fromBytes(openFlBytes);

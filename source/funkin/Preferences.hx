@@ -97,6 +97,20 @@ class Preferences
    * If enabled, the strumline is at the bottom of the screen rather than the top.
    * @default `false`
    */
+  public static var motionBlur(get, set):Bool;
+
+  static function get_motionBlur():Bool
+  {
+    return Save?.instance?.options?.motionBlur ?? false;
+  }
+
+  static function set_motionBlur(value:Bool):Bool
+  {
+    Save.instance.options.motionBlur = value;
+    Save.system.flush();
+    return value;
+  }
+
   public static var downscroll(get, set):Bool;
 
   static function get_downscroll():Bool

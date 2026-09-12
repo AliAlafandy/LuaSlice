@@ -26,6 +26,7 @@ import flixel.FlxSprite;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import flixel.math.FlxMath;
+import flixel.math.FlxRect;
 import flixel.tweens.FlxEase;
 import flixel.group.FlxSpriteGroup.FlxTypedSpriteGroup;
 
@@ -55,6 +56,10 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
   // Text for the jump-in message and count
   var jumpInText:FlxText;
   var countText:FlxText;
+  var tapNowText:FlxText;
+  var tapCueStartTime:Float = 0;
+  var tapCueBounds:FlxRect = new FlxRect();
+  static final TAP_CUE_DURATION_MS:Float = 140;
   // Elements for the offset calibration (receptor, arrows, strumline, etc)
   var arrows:Array<ArrowData> = [];
   var receptor:FunkinSprite;
@@ -232,6 +237,14 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
 
     countText.cameras = [menuCamera];
 
+    tapNowText = new FlxText(0, 0, 200, #if mobile 'Tap now!' #else 'Hit now!' #end);
+    tapNowText.setFormat(Paths.font('vcr.ttf'), 32, FlxColor.WHITE, FlxTextAlign.CENTER);
+    tapNowText.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.BLACK, 4);
+    tapNowText.scrollFactor.set(0, 0);
+    tapNowText.cameras = [menuCamera];
+    tapNowText.visible = false;
+    add(tapNowText);
+
     add(items = new TextMenuList());
     add(preferenceItems = new FlxTypedSpriteGroup<FlxSprite>());
 
@@ -281,6 +294,8 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
       appliedOffsetLerp = 0;
 
       arrowBeat = Math.floor(localConductor.currentBeatTime) + 4;
+      tapCueStartTime = arrowBeat * msPerBeat;
+      tapNowText.visible = false;
       receptor.angle = 0;
 
       _gotMad = false;
@@ -293,6 +308,7 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
       if (OptionsState.instance.optionsCodex.currentPage != this) return;
 
       shouldOffset = 1;
+      tapNowText.visible = false;
       testStrumline.clean();
       testStrumline.noteData = [];
       testStrumline.nextNoteIndex = 0;
@@ -372,6 +388,15 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
         jumpInText.y = FlxG.height - 425;
       }
       #end
+
+      var strumTop = Math.POSITIVE_INFINITY;
+      for (strum in testStrumline.strumlineNotes.members)
+      {
+        if (strum == null || !strum.exists) continue;
+        strum.getGraphicBounds(tapCueBounds);
+        strumTop = Math.min(strumTop, tapCueBounds.y);
+      }
+      if (strumTop != Math.POSITIVE_INFINITY) testStrumline.y += Math.max(0, tapNowText.height + 24 - strumTop);
     });
     PreciseInputManager.instance.onInputPressed.add(onKeyPress);
     PreciseInputManager.instance.onInputReleased.add(onKeyRelease);
@@ -387,6 +412,7 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
      */
   function onKeyPress(event:PreciseInputEvent):Void
   {
+    event.position = localConductor.songPosition;
     // Do the minimal possible work here.
     inputPressQueue.push(event);
   }
@@ -396,6 +422,7 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
      */
   function onKeyRelease(event:PreciseInputEvent):Void
   {
+    event.position = localConductor.songPosition;
     // Do the minimal possible work here.
     inputReleaseQueue.push(event);
   }
@@ -404,6 +431,7 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
 
   public function exitCalibration(cancel:Bool):Void
   {
+    tapNowText.visible = false;
     backButton.enabled = false;
     shouldOffset = -1;
     #if mobile
@@ -496,6 +524,7 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
 
   override function update(elapsed:Float):Void
   {
+    tapNowText.visible = false;
     super.update(elapsed);
     localConductor.update(localConductor.songPosition + elapsed * 1000, false);
 
@@ -520,6 +549,7 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
       if (calibrating)
       {
         arrowBeat = lastArrowBeat;
+        tapCueStartTime = Math.ceil(b) * msPerBeat;
       }
       else
         arrowBeat = 4;
@@ -618,7 +648,7 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
         var arrow:ArrowData = getClosestArrowAtBeat(b);
 
         var closestBeat:Float = Math.round(b);
-        var diff:Float = closestBeat - b;
+        var diff:Float = b - closestBeat;
         var ms:Float = (diff * msPerBeat);
 
         if (arrow != null) // eric sees this and goes "OMG NULL REF!!!!"
@@ -809,6 +839,71 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
       daItem.y = yLerp + ((120 * ind) + 30);
       ind++;
     });
+
+    updateTapCue();
+  }
+
+  function updateTapCue():Void
+  {
+    if (shouldOffset != 1) return;
+
+    final time = localConductor.getTimeWithDelta();
+    var due = false;
+    if (calibrating)
+    {
+      if (differences.length < 8)
+      {
+        final sinceBeat = time - Math.floor(time / msPerBeat) * msPerBeat;
+        due = time >= tapCueStartTime && sinceBeat >= 0 && sinceBeat < TAP_CUE_DURATION_MS;
+      }
+      else
+      {
+        for (arrow in arrows)
+        {
+          final sinceArrow = time - (arrow.beat * msPerBeat - appliedOffsetLerp);
+          if (arrow.sprite.alive && sinceArrow >= 0 && sinceArrow < TAP_CUE_DURATION_MS)
+          {
+            due = true;
+            break;
+          }
+        }
+      }
+      if (!due) return;
+      receptor.getGraphicBounds(tapCueBounds);
+    }
+    else
+    {
+      for (note in testStrumline.notes.members)
+      {
+        if (note == null || !note.alive || note.hasBeenHit || note.hasMissed) continue;
+        final sinceNote = time - note.strumTime;
+        if (sinceNote >= 0 && sinceNote < TAP_CUE_DURATION_MS)
+        {
+          due = true;
+          break;
+        }
+      }
+      if (!due) return;
+
+      var left = Math.POSITIVE_INFINITY;
+      var right = Math.NEGATIVE_INFINITY;
+      var top = Math.POSITIVE_INFINITY;
+      for (strum in testStrumline.strumlineNotes.members)
+      {
+        if (strum == null || !strum.exists) continue;
+        strum.getGraphicBounds(tapCueBounds);
+        left = Math.min(left, tapCueBounds.x);
+        right = Math.max(right, tapCueBounds.x + tapCueBounds.width);
+        top = Math.min(top, tapCueBounds.y);
+      }
+      if (left == Math.POSITIVE_INFINITY) return;
+      tapCueBounds.set(left, top, right - left, 0);
+    }
+
+    tapNowText.x = FlxMath.bound(tapCueBounds.x + (tapCueBounds.width - tapNowText.width) / 2, 0, Math.max(0, FlxG.width - tapNowText.width));
+    tapNowText.y = Math.max(8, tapCueBounds.y - tapNowText.height - 16);
+    tapNowText.alpha = jumpInText.alpha;
+    tapNowText.visible = true;
   }
 
   function hitNote(note:NoteSprite, input:PreciseInputEvent):Void
@@ -816,7 +911,7 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
     var inputLatencyNs:Int64 = PreciseInputManager.getCurrentTimestamp() - input.timestamp;
     var inputLatencyMs:Float = inputLatencyNs.toFloat() / Constants.NS_PER_MS;
 
-    var noteDiff:Int = Std.int(note.noteData.time - localConductor.songPosition - inputLatencyMs);
+    var noteDiff:Int = Std.int((input.position ?? localConductor.songPosition) - note.noteData.time - inputLatencyMs);
 
     addDifference(noteDiff);
 
@@ -831,7 +926,7 @@ class OffsetMenu extends Page<OptionsState.OptionsMenuPageName>
     }
     else
     {
-      jumpInText.text = noteDiff > 0 ? 'Early!\n' + noteDiff + 'ms' : 'Late!\n' + noteDiff + 'ms';
+      jumpInText.text = noteDiff < 0 ? 'Early!\n' + noteDiff + 'ms' : 'Late!\n' + noteDiff + 'ms';
     }
 
     jumpInText.text += '\nAvg: ' + Std.int(getAverage()) + 'ms';

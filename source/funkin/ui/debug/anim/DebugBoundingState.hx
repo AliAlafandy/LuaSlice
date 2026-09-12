@@ -355,7 +355,7 @@ class DebugBoundingState extends FlxState
     if (!pinching)
     {
       MouseUtil.mouseCamDrag();
-      if (!haxeUIFocused) MouseUtil.mouseWheelZoom();
+      if (!haxeUIFocused) handleTrackpadScroll();
     }
 
     // bg.scale.x = FlxG.camera.zoom;
@@ -390,6 +390,23 @@ class DebugBoundingState extends FlxState
     return true;
   }
   #end
+
+  function handleTrackpadScroll():Void
+  {
+    final dx = FlxG.mouse.deltaWheel.x;
+    final dy = FlxG.mouse.deltaWheel.y;
+    if (!Math.isFinite(dx) || !Math.isFinite(dy) || (dx == 0 && dy == 0)) return;
+    if (FlxG.keys.pressed.CONTROL)
+    {
+      final zoomFactor = flixel.math.FlxMath.bound(Math.exp(dy / 10), 0.75, 1.25);
+      FlxG.camera.zoom = flixel.math.FlxMath.bound(FlxG.camera.zoom * zoomFactor, 0.1, 10);
+    }
+    else
+    {
+      FlxG.camera.scroll.x += dx * 25 / FlxG.camera.zoom;
+      FlxG.camera.scroll.y -= dy * 25 / FlxG.camera.zoom;
+    }
+  }
 
   function exitEditor():Void
   {

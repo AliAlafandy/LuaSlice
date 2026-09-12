@@ -1759,6 +1759,8 @@ class FreeplayState extends MusicBeatSubState
   var _prevRoundedDragOffset:Float = 0;
   var _pressedOnSelected:Bool = false;
   var _moveLength:Float = 0;
+  var _touchpadScrolling:Bool = false;
+  var _touchpadIdle:Float = 0;
   var _flickEnded:Bool = true;
   var _pressedOnCapsule:Bool = false;
   var _scrollTouchId:Int = -1;
@@ -1782,15 +1784,7 @@ class FreeplayState extends MusicBeatSubState
 
     handleDirectionalInput(elapsed);
 
-    var wheelDelta:Float = FlxG.mouse.deltaWheel.y;
-    if (wheelDelta == 0 && FlxG.mouse.wheel != 0) wheelDelta = FlxG.mouse.wheel;
-    final wheelAmount:Int = Math.round(FlxMath.bound(wheelDelta, -1, 1));
-
-    if (wheelAmount != 0)
-    {
-      dj?.onPlayerAction(); // dj?.resetAFKTimer();
-      changeSelection(-wheelAmount);
-    }
+    handleMouseSelectionScroll(elapsed);
 
     handleDifficultySwitch();
     handleDebugKeys();
@@ -1817,6 +1811,42 @@ class FreeplayState extends MusicBeatSubState
     if (controls.ACCEPT_P && uiStateMachine.canInteract())
     {
       currentCapsule.onConfirm();
+    }
+  }
+
+  function handleMouseSelectionScroll(elapsed:Float):Void
+  {
+    #if FEATURE_TOUCH_CONTROLS
+    if (TouchUtil.pressed || _scrollFlickActive) return;
+    #end
+
+    var delta = FlxG.mouse.deltaWheel.y;
+    if (delta == 0 && FlxG.mouse.wheel != 0) delta = FlxG.mouse.wheel;
+    if (!Math.isFinite(delta) || grpCapsules.countLiving() == 0) return;
+
+    if (delta != 0)
+    {
+      dj?.onPlayerAction();
+      _touchpadIdle = 0;
+      if (!_touchpadScrolling && Math.abs(delta) >= 1)
+      {
+        changeSelection(delta > 0 ? -1 : 1);
+        return;
+      }
+
+      _touchpadScrolling = true;
+      curSelectedFloat = FlxMath.bound(curSelectedFloat - FlxMath.bound(delta, -1, 1) * 0.5, 0, grpCapsules.countLiving() - 1);
+      updateSongsScroll();
+      for (index => capsule in grpCapsules.members) capsule.selected = index == curSelected;
+    }
+    else if (_touchpadScrolling)
+    {
+      _touchpadIdle += elapsed;
+      if (_touchpadIdle >= 0.12)
+      {
+        _touchpadScrolling = false;
+        changeSelection(0);
+      }
     }
   }
 
@@ -2976,6 +3006,9 @@ class FreeplayState extends MusicBeatSubState
     }
 
     // Reset `prepForNewRank` flag on change to prevent song previews from not updating.
+    curSelectedFloat = curSelected;
+    _touchpadScrolling = false;
+
     if (change != 0 && prepForNewRank) prepForNewRank = false;
 
     if (!prepForNewRank && curSelected != prevSelected) FunkinSound.playOnce(Paths.sound('scrollMenu'), 0.4);

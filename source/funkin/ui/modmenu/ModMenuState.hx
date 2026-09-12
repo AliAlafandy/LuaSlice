@@ -281,9 +281,9 @@ class ModMenuState extends MusicBeatState
     add(rightRectangle);
 
     var dragTextWidth:Float = leftRectangle.width + rightRectangle.width + distanceBetweenRectangles;
-    var dragText:FlxText = new FlxText(leftRectangle.x, FlxG.height * 0.13, dragTextWidth, 'Drag packs onto this window to add new stuff');
+    var dragText:FlxText = new FlxText(leftRectangle.x, FlxG.height * 0.13, dragTextWidth, 'Drag packs onto this window to add new mods');
     #if FEATURE_TOUCH_CONTROLS
-    dragText.text = 'Tap and hold on a mod to drag it';
+    dragText.text = 'Tap a mod to switch lists. Swipe to scroll, hold to drag mods.';
     #end
     dragText.setFormat(Paths.font('FunkinLingLong.otf'), 32, FlxColor.WHITE, FlxTextAlign.CENTER);
     dragText.scale.set(1, 0.8);
@@ -796,9 +796,13 @@ class ModMenuState extends MusicBeatState
 
   function rescanFolder():Void
   {
+    if (exitingMenu || !allowInput || hasTransitions()) return;
+    #if FEATURE_TOUCH_CONTROLS
+    if (menuTouchId != -1) return;
+    #end
     var newItems = PolymodHandler.getModFolderEntries();
 
-    if (newItems.length != itemsInFolder.length)
+    if (newItems.length != itemsInFolder.length || newItems.exists((entry) -> !itemsInFolder.contains(entry)))
     {
       trace("Mod folder changed, refreshing list.");
       refreshModList();
@@ -1323,7 +1327,12 @@ class ModMenuState extends MusicBeatState
     if (allowInput)
     {
       #if FEATURE_TOUCH_CONTROLS
-      if (ControlsHandler.lastInputTouch)
+      if (controls.BACK_P && !hasTransitions() && !exitingMenu)
+      {
+        pressBackButton();
+        return;
+      }
+      if (!ControlsHandler.usingExternalInputDevice || ControlsHandler.lastInputTouch || menuTouchId != -1)
       {
         handleTouch(elapsed);
 
@@ -1789,197 +1798,189 @@ class ModMenuState extends MusicBeatState
   }
 
   #if FEATURE_TOUCH_CONTROLS
-  var grabbedItem:ModMenuItem = null;
-  var originalItemList:ModMenuItemList = null;
-  final touchDeltaXThreshold:Int = 5;
-  final touchDeltaYThreshold:Int = 10;
+  var grabbedItem:Null<ModMenuItem>;
+  var originalItemList:Null<ModMenuItemList>;
+  var pressedModItem:Null<ModMenuItem>;
+  var pressedMenuButton:Null<ModMenuSelection>;
+  var menuTouchId:Int = -1;
+  var menuTouchPoint:FlxPoint = new FlxPoint();
+  var menuTouchStartX:Float = 0;
+  var menuTouchStartY:Float = 0;
+  var menuTouchLastY:Float = 0;
+  var menuTouchAge:Float = 0;
+  var menuTouchMoved:Bool = false;
+  var touchScrolling:Bool = false;
 
-  function checkItemGrab(itemList:ModMenuItemList,
-    targetSelection:ModMenuSelection):Void
+  function menuButtonAtPoint():Null<ModMenuSelection>
   {
-    if (grabbedItem == null)
-    {
-      itemList.deselect();
-    }
-
-    for (item in itemList.modItems)
-    {
-      if (!item.locked && TouchUtil.overlapsComplex(item) && TouchUtil.pressed && Math.abs(TouchUtil.touch?.deltaViewX) >= touchDeltaXThreshold)
-      {
-        FunkinSound.playOnce(Paths.sound('ui/main-menu/scroll-menu'), 0.4);
-
-        itemList.selectModItem(item, false);
-
-        grabbedItem = item;
-        originalItemList = itemList;
-
-        for (record in pendingTransitions)
-        {
-          if (record.item == grabbedItem)
-          {
-            completeTransition(record);
-
-            break;
-          }
-        }
-
-        putItemInTransitionLayer(item, grabbedItem.x, grabbedItem.y);
-
-        selection = targetSelection;
-      }
-    }
+    if (hitboxOpenFolder.overlapsPoint(menuTouchPoint)) return OpenModsFolder;
+    if (buttonDone.overlapsPoint(menuTouchPoint)) return Done;
+    if (buttonBackToMenu.overlapsPoint(menuTouchPoint)) return BackToMenu;
+    return null;
   }
 
-  var touchScrolling:Bool = false;
+  function modAtPoint(list:ModMenuItemList):Null<ModMenuItem>
+  {
+    final clip = list.clipRect;
+    final top = list.y + (clip == null ? 60 : clip.y);
+    final bottom = top + (clip == null ? list.viewportHeight : clip.height);
+    if (menuTouchPoint.y < top || menuTouchPoint.y > bottom) return null;
+    for (item in list.modItems)
+    {
+      if (!item.locked && item.overlapsPoint(menuTouchPoint)) return item;
+    }
+    return null;
+  }
+
+  function finishTouchDrag():Void
+  {
+    final item = grabbedItem;
+    final sourceList = originalItemList;
+    if (item == null || sourceList == null) return;
+    var changed = false;
+    if (sourceList == enabledModItems && leftRectangle.overlapsPoint(menuTouchPoint))
+    {
+      disableMod(item);
+      changed = true;
+    }
+    else if (sourceList == disabledModItems && rightRectangle.overlapsPoint(menuTouchPoint))
+    {
+      changed = enableMod(item);
+    }
+
+    if (!changed)
+    {
+      final index = sourceList.modItems.indexOf(item);
+      if (index >= 0)
+      {
+        startItemTransition(item, sourceList.x + ModMenuItemList.ITEM_X_OFFSET,
+          sourceList.y + sourceList.getModItemYPos(index) + sourceList.scrollOffset, sourceList, index);
+      }
+    }
+    grabbedItem = null;
+  }
 
   function handleTouch(elapsed:Float):Void
   {
-    if (touchScrolling)
+    if (exitingMenu) return;
+    var touch:Null<flixel.input.touch.FlxTouch> = null;
+    if (menuTouchId != -1)
     {
-      var targetList:ModMenuItemList = null;
-
-      switch (selection)
+      for (candidate in FlxG.touches.list)
       {
-        case EnabledModList:
-          targetList = enabledModItems;
-
-        case DisabledModList:
-          targetList = disabledModItems;
-
-        default:
-      }
-
-      targetList?.scrollBy(TouchUtil.touch?.deltaViewY);
-
-      if (TouchUtil.justReleased)
-      {
-        touchScrolling = false;
+        if (candidate.touchPointID == menuTouchId)
+        {
+          touch = candidate;
+          break;
+        }
       }
     }
-    else
+    else if (!hasTransitions())
     {
-      if (grabbedItem == null)
+      for (candidate in FlxG.touches.list)
       {
-        checkItemGrab(enabledModItems, EnabledModList);
-        checkItemGrab(disabledModItems, DisabledModList);
-
-        if (TouchUtil.pressed && Math.abs(TouchUtil.touch?.deltaViewY) >= touchDeltaYThreshold)
+        if (candidate.justPressed)
         {
-          touchScrolling = true;
+          touch = candidate;
+          break;
         }
+      }
+      if (touch == null) return;
+
+      menuTouchId = touch.touchPointID;
+      touch.getWorldPosition(camOther, menuTouchPoint);
+      menuTouchStartX = menuTouchPoint.x;
+      menuTouchStartY = menuTouchLastY = menuTouchPoint.y;
+      menuTouchAge = 0;
+      menuTouchMoved = false;
+      touchScrolling = false;
+      pressedModItem = null;
+      originalItemList = null;
+      pressedMenuButton = menuButtonAtPoint();
+      if (pressedMenuButton != null)
+      {
+        selection = pressedMenuButton;
+        if (selection == BackToMenu) playBackButtonAnimation('press', true);
       }
       else
       {
-        final targetX:Float = TouchUtil.touch?.x - grabbedItem.width / 2;
-        final targetY:Float = TouchUtil.touch?.y - grabbedItem.height / 2;
-
-        grabbedItem.localX = MathUtil.smoothLerpPrecision(grabbedItem.localX, targetX, elapsed, 0.5);
-        grabbedItem.localY = MathUtil.smoothLerpPrecision(grabbedItem.localY, targetY, elapsed, 0.5);
-
-        if (!TouchUtil.pressed)
+        if (leftRectangle.overlapsPoint(menuTouchPoint)) originalItemList = disabledModItems;
+        else if (rightRectangle.overlapsPoint(menuTouchPoint)) originalItemList = enabledModItems;
+        if (originalItemList != null)
         {
-          var targetList:ModMenuItemList = null;
-
-          var listChanged:Bool = false;
-
-          switch (selection)
-          {
-            case EnabledModList:
-              targetList = enabledModItems;
-
-              if (TouchUtil.overlapsComplex(leftRectangle))
-              {
-                targetList = disabledModItems;
-
-                selection = DisabledModList;
-
-                disableMod(grabbedItem, true);
-
-                listChanged = true;
-              }
-
-            case DisabledModList:
-              targetList = disabledModItems;
-
-              if (TouchUtil.overlapsComplex(rightRectangle))
-              {
-                targetList = enabledModItems;
-
-                selection = EnabledModList;
-
-                final result:Bool = enableMod(grabbedItem, true);
-
-                listChanged = result;
-              }
-
-            default:
-          }
-
-          if (!listChanged)
-          {
-            targetList = originalItemList;
-
-            var finalIndex:Int = targetList.modItems.indexOf(grabbedItem);
-
-            var batchFutureCount:Int = targetList.modItems.length;
-
-            var targetTransitionX:Float = targetList.x + ModMenuItemList.ITEM_X_OFFSET;
-            var targetTransitionY:Float = targetList.y + targetList.getModItemYPosForCount(finalIndex, batchFutureCount) + targetList.scrollOffset;
-
-            startItemTransition(grabbedItem, targetTransitionX, targetTransitionY, targetList, finalIndex);
-          }
-
-          targetList.deselect();
-
-          grabbedItem = null;
-          originalItemList = null;
+          selection = originalItemList == enabledModItems ? EnabledModList : DisabledModList;
+          pressedModItem = modAtPoint(originalItemList);
+          if (pressedModItem != null) originalItemList.selectModItem(pressedModItem, false);
         }
       }
     }
 
-    if (TouchUtil.overlapsComplex(hitboxOpenFolder) && selection != OpenModsFolder)
-    {
-      selection = OpenModsFolder;
-    }
-    else if (TouchUtil.overlapsComplex(buttonDone) && selection != Done)
-    {
-      selection = Done;
-    }
-    else if (TouchUtil.overlapsComplex(buttonBackToMenu) && selection != BackToMenu)
-    {
-      selection = BackToMenu;
-    }
+    if (menuTouchId == -1) return;
+    if (touch != null) touch.getWorldPosition(camOther, menuTouchPoint);
+    final dx = menuTouchPoint.x - menuTouchStartX;
+    final dy = menuTouchPoint.y - menuTouchStartY;
+    final released = touch == null || !touch.pressed;
+    menuTouchAge += elapsed;
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) menuTouchMoved = true;
 
-    if (TouchUtil.pressAction(hitboxOpenFolder))
+    if (!released && pressedMenuButton == null && originalItemList != null)
     {
-      FunkinSound.playOnce(Paths.sound('ui/main-menu/scroll-menu'), 0.4);
-
-      openFolderAnimator.playAnimation('accept');
-      openFolderAnimator.onFinish = () ->
+      if (grabbedItem == null && !touchScrolling)
       {
-        openModsFolder();
-        openFolderAnimator.playAnimation('deselect');
-      };
+        if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx))
+        {
+          touchScrolling = true;
+        }
+        else if (pressedModItem != null && (Math.abs(dx) > 8 || menuTouchAge >= 0.3))
+        {
+          grabbedItem = pressedModItem;
+          grabbedItem.cancelFlight();
+          putItemInTransitionLayer(grabbedItem, grabbedItem.x, grabbedItem.y);
+        }
+      }
+      if (touchScrolling) originalItemList.scrollBy(menuTouchPoint.y - menuTouchLastY);
+      if (grabbedItem != null)
+      {
+        grabbedItem.localX = menuTouchPoint.x - grabbedItem.width / 2 - transitionLayer.x;
+        grabbedItem.localY = menuTouchPoint.y - grabbedItem.height / 2 - transitionLayer.y;
+      }
     }
+    menuTouchLastY = menuTouchPoint.y;
 
-    if (TouchUtil.pressAction(buttonDone))
+    if (!released) return;
+    if (grabbedItem != null)
     {
-      FunkinSound.playOnce(Paths.sound('ui/main-menu/scroll-menu'), 0.4);
-
-      playElectrocutionSequence();
+      finishTouchDrag();
     }
-
-    if (TouchUtil.overlapsComplex(buttonBackToMenu) && TouchUtil.justPressed)
+    else if (!menuTouchMoved && !touchScrolling && touch != null)
     {
-      playBackButtonAnimation('press', true);
+      if (pressedModItem != null && pressedModItem.overlapsPoint(menuTouchPoint))
+      {
+        if (originalItemList == enabledModItems) disableMod(pressedModItem);
+        else enableMod(pressedModItem);
+      }
+      else if (pressedMenuButton != null && menuButtonAtPoint() == pressedMenuButton)
+      {
+        switch (pressedMenuButton)
+        {
+          case OpenModsFolder:
+            openFolderAnimator.playAnimation('accept');
+            openFolderAnimator.onFinish = openModsFolder;
+          case Done:
+            playElectrocutionSequence();
+          case BackToMenu:
+            backPressStage = 2;
+            playBackButtonAnimation('confirm', true);
+          default:
+        }
+      }
     }
-
-    if (buttonBackToMenu.animation.name == 'press' && TouchUtil.justReleased)
-    {
-      backPressStage = 2;
-
-      playBackButtonAnimation('confirm', true);
-    }
+    if (pressedMenuButton == BackToMenu && backPressStage == 0) playBackButtonAnimation('idle', true);
+    menuTouchId = -1;
+    pressedModItem = null;
+    pressedMenuButton = null;
+    originalItemList = null;
+    touchScrolling = false;
   }
   #end
 

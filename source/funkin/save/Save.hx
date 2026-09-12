@@ -103,6 +103,7 @@ class Save implements ConsoleClass
         // Reasonable defaults.
         framerate: #if mobile refreshRate #else 60 #end,
         naughtyness: true,
+        motionBlur: false,
         downscroll: false,
         middleScroll: false,
         pauseButton: true,
@@ -1147,6 +1148,8 @@ typedef SaveDataOptions =
    * @default `true`
    */
   var naughtyness:Bool;
+
+  var ?motionBlur:Bool;
 
   /**
    * If enabled, the strumline is at the bottom of the screen rather than the top.

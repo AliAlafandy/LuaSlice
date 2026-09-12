@@ -637,12 +637,7 @@ class StageEditorState extends UIState
     camGame.follow(camFollow);
     // camera movement
 
-    if ((FlxG.mouse.deltaWheel.y > 0 || (FlxG.mouse.deltaWheel.y < 0 && camGame.zoom > 0.11))
-      && !isCursorOverHaxeUI) // include the floating poing error thing
-    {
-      camGame.zoom += FlxG.mouse.deltaWheel.y / 10;
-      updateBGSize();
-    }
+    if (!isCursorOverHaxeUI) handleTrackpadScroll();
 
     // key shortcuts and inputs
     if (pressingControl() && FlxG.keys.justPressed.Q) onMenuItemClick('exit');
@@ -1046,6 +1041,24 @@ class StageEditorState extends UIState
     bg.scale.set(1 / FlxG.camera.zoom, 1 / FlxG.camera.zoom);
     bg.updateHitbox();
     bg.screenCenter();
+  }
+
+  function handleTrackpadScroll():Void
+  {
+    final dx = FlxG.mouse.deltaWheel.x;
+    final dy = FlxG.mouse.deltaWheel.y;
+    if (!Math.isFinite(dx) || !Math.isFinite(dy) || (dx == 0 && dy == 0)) return;
+    if (FlxG.keys.pressed.CONTROL)
+    {
+      final zoomFactor = flixel.math.FlxMath.bound(Math.exp(dy / 10), 0.75, 1.25);
+      camGame.zoom = flixel.math.FlxMath.bound(camGame.zoom * zoomFactor, 0.11, 10);
+      updateBGSize();
+    }
+    else
+    {
+      camFollow.x += dx * 25 / camGame.zoom;
+      camFollow.y -= dy * 25 / camGame.zoom;
+    }
   }
 
   var sprDependant:Array<MenuItem> = [];
@@ -1737,7 +1750,7 @@ typedef StageEditorAssetFile =
   /**
    * The content of the file, decoded into bytes.
    */
-  var data:Bytes;
+  var data:haxe.io.Bytes;
 }
 #end
 
